@@ -1,13 +1,88 @@
 (function (window) {
 
-    RegExp.quote = function (str) {
-        return (str + '').replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&");
-    };
+    _.mixin({
+        'quote' : function (str) {
+            return (str + '').replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&");
+        },
+        'format': function format(string, args) {
+            var newStr = string;
+            for (var key in args) {
+                //noinspection JSUnfilteredForInLoop
+                newStr = newStr.replace('{' + key + '}', args[key]);
+            }
+            return newStr;
+        }
+    });
 
-    var parser = {
-        equalSymbol : '::=',
-        nonTerminals: ['|'],
-        split       : function (str, symbols) {
+    /**
+     * <b>Parser</b> allows to parse each sentence of the grammar into the normalized
+     * form of it, for instance B:==LLL will be changed to B:==L{3}, hence telling, as
+     * it would be using regexp, that L symbol is repeated 3 times
+     * @param tSymbols terminal symbols of the gramma
+     * @constructor
+     */
+    var Parser = function Parser(tSymbols) {
+        this.symbols.terminals = _.union(tSymbols, []);
+    };
+    Parser.prototype = {
+        symbols            : {
+            terminals   : undefined,
+            nonTerminals: ['|']
+        },
+        equalSymbol        : '::=',
+        toOccurrencesString: function (symbol, occurred) {
+            return _.format('{symbol}{{occurred}}', {
+                symbol  : symbol,
+                occurred: occurred
+            })
+        },
+        normalizeExpression: function (expr) {
+            var asArray = expr.split(''),
+                length = asArray.length,
+                uniqueSymbols = _.uniq(asArray),
+                normalizer = {},
+                self = this;
+
+            if (uniqueSymbols.length === 1) {
+                normalizer.get = _.bind(self.toOccurrencesString, normalizer, asArray[0], length);
+            } else {
+                normalizer.get = function () {
+                    var it = 0,
+                        symbol = asArray[it],
+                        occurrences = 0,
+                        nextAvailable,
+                        nextSymbol,
+                        newExpr = [];
+
+                    for (it; it < length; it++) {
+                        nextAvailable = (it + 1) < length;
+                        if (nextAvailable) {
+                            nextSymbol = asArray[it + 1];
+                            if (nextSymbol === symbol) {
+                                occurrences++;
+                            } else {
+                                // need to save given group and reset occurrences
+                                // as well as to reset current symbol to the next one
+                                if (occurrences > 1) {
+                                    newExpr.push(self.toOccurrencesString(symbol, occurrences));
+                                } else {
+                                    newExpr.push(symbol);
+                                }
+                                occurrences = 0;
+                                symbol = nextSymbol;
+                            }
+                        } else {
+                            newExpr.push(symbol);
+                        }
+                    }
+
+                    return newExpr.join('');
+                }
+            }
+
+            return normalizer;
+        },
+        toGrammarObject    : function (str) {
             if (!str) {
                 return false;
             }
@@ -16,10 +91,10 @@
             var symbol = str[0],
                 expr = str[1];
 
-            if (symbols.indexOf(symbol) >= 0) {
+            if (this.symbols.terminals.indexOf(symbol) >= 0) {
                 return {
                     symbol    : symbol,
-                    expression: expr
+                    expression: this.normalizeExpression(expr).get()
                 }
             } else {
                 alert('BAD expression');
@@ -27,20 +102,15 @@
         }
     };
 
-    function objSize(obj) {
-        var length = 0;
-        for (var i in obj) length++;
-        return length;
-    }
-
     function grammaToMap(gramma, symbols) {
-        var grammaMap = {},
+        var parser = new Parser(symbols),
+            grammaMap = {},
             length = gramma.length,
             chunk;
 
         while (length--) {
             chunk = gramma[length];
-            chunk = parser.split(chunk, symbols);
+            chunk = parser.toGrammarObject(chunk);
             grammaMap[chunk.symbol] = chunk;
         }
 
@@ -55,41 +125,6 @@
             }
         });
         return detected;
-    }
-
-    function detectRepetitions(chunk) {
-        var parsed = chunk.expression.split(''),
-            length = parsed.length,
-            it = 0,
-            lastSymbols = parsed[it++],
-            repetitions = 0,
-            newExpression = [];
-
-        for (it; it < length; it++) {
-            var equal = parsed[it] === lastSymbols;
-
-            if (equal) {
-                repetitions++;
-            }
-
-            // not working :/
-
-            if (!equal || it === length - 1) {
-                newExpression.push(lastSymbols + '{' + (repetitions + 1) + '}');
-
-                lastSymbols = it !== length - 1 ? parsed[it + 1] : undefined;
-
-                if (!lastSymbols) {
-                    break;
-                } else {
-                    newExpression.push(parsed[it]);
-                    repetitions = 0;
-                    it++;
-                }
-            }
-        }
-        chunk.expression = newExpression.join('');
-        return chunk;
     }
 
     function hasTerminalsOnly(chunk, symbols) {
@@ -150,24 +185,24 @@
                 detectedSymbols = detectSymbols(regexp, symbols);
                 if (!detectedSymbols.length) {
                     break;
-                } else {
-                    regexp = detectRepetitions(regexp);
                 }
             }
 
             // at this point we have an expression containing only terminal symbols lets wrap them up
             _.forEachRight(_.values(hasTerminalsOnlyMap), function (expr) {
-                var newExpr = expr.length !== 1 ? '[' + expr + ']' : expr;
+                var newExpr = expr.length !== 1 ? '(' + expr + ')' : expr;
                 if (newExpr !== expr) {
-                    regexp.expression = regexp.expression.replace(new RegExp(RegExp.quote(expr), 'g'), newExpr);
+                    regexp.expression = regexp.expression.replace(new RegExp(_.quote(expr), 'g'), newExpr);
                 }
             });
 
             regexp.toString = function () {
-                return this.symbol + parser.equalSymbol + this.expression;
+                return this.symbol + '::=' + this.expression;
             };
 
             console.log(regexp.toString());
+
+            return regexp.toString();
         }
 
     };

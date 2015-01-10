@@ -1,36 +1,43 @@
 <html>
-	<head>
-		<title>Gramma verify - LOL</title>
-		<script type="text/javascript" src="../lib/lodash.js"></script>
-		<script type="text/javascript" src="gramma.js"></script>
-	</head>
-	<body>
-		<section>
+<head>
+    <title>Gramma verify - LOL</title>
+    <script type="text/javascript" src="../lib/lodash.js"></script>
+    <script type="text/javascript" src="gramma.js"></script>
+</head>
+<body>
+<section>
 
-			<p>
-				<h2>Gramma</h2>
-				<textarea id="gramma" title="Gramma"></textarea>
-			<p>
-				<h2>Symbols</h2>
-				<input type="text" id="symbols" title="Symbols">
+    <p>
 
-			<button id="execButton" title="Exec">Exec</button>
-		</section>
-	</body>
-	
-		<script type="text/javascript">
-		
-		(function(){
-			
-			var grammaTA = document.getElementById('gramma'),
-				symbolsTA = document.getElementById('symbols'),
-				button = document.getElementById('execButton');
-		
-			button.addEventListener('click', function(){
-				TT.toRegexp(grammaTA.value,symbolsTA.value);
-			});
-		
-		}());
-		
-		</script>
+    <h2>Gramma</h2>
+    <textarea id="gramma" title="Gramma"></textarea>
+
+    <p>
+
+    <h2>Symbols</h2>
+    <input type="text" id="symbols" title="Symbols">
+
+    <button id="execButton" title="Exec">Exec</button>
+</section>
+<section>
+    <p style="font-weight: bold">Result :: <span id="resultHolder" style="font-size: large;color:blue;"></span></p>
+</section>
+</body>
+
+<script type="text/javascript">
+
+    (function () {
+
+        var grammaTA = document.getElementById('gramma'),
+                symbolsTA = document.getElementById('symbols'),
+                resultHolder = document.getElementById('resultHolder'),
+                button = document.getElementById('execButton');
+
+        button.addEventListener('click', function () {
+            resultHolder.innerHTML = TT.toRegexp(grammaTA.value, symbolsTA.value);
+        });
+
+    }());
+
+</script>
 </html>
