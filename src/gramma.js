@@ -31,6 +31,9 @@
         },
         equalSymbol        : '::=',
         toOccurrencesString: function (symbol, occurred) {
+            if(occurred === 1){
+                return symbol;
+            }
             return _.format('{symbol}{{occurred}}', {
                 symbol  : symbol,
                 occurred: occurred
@@ -46,20 +49,46 @@
             if (uniqueSymbols.length === 1) {
                 normalizer.get = _.bind(self.toOccurrencesString, normalizer, asArray[0], length);
             } else {
+
+                function followGroup(expr){
+
+                }
+
                 normalizer.get = function () {
                     var it = 0,
                         symbol = asArray[it],
-                        occurrences = 0,
+                        occurrences = 1,
                         nextAvailable,
                         nextSymbol,
-                        newExpr = [];
+                        newExpr = [],
+                        metaSymbol;
 
                     for (it; it < length; it++) {
+
                         nextAvailable = (it + 1) < length;
+                        
                         if (nextAvailable) {
                             nextSymbol = asArray[it + 1];
                             if (nextSymbol === symbol) {
                                 occurrences++;
+                            } else if(['{','['].indexOf(symbol) >= 0){
+                                console.log('Meta character ' + symbol + ' detected');
+                                switch(symbol){
+                                    case '{': {
+                                        // 0 or more, => *
+                                        var groupLength = (function(){
+                                            var itL = it,
+                                                gL = 0;
+                                            while(asArray[itL++] !== '}'){
+                                                gL++;
+                                            }
+                                            return gL+1;
+                                        }());0
+                                        newExpr.push('('+ self.normalizeExpression(asArray.join('').slice(it+1,it+groupLength-1)).get() + '*)');
+                                    }
+                                }
+                                it += groupLength-1;
+                                symbol = asArray[it+1];
                             } else {
                                 // need to save given group and reset occurrences
                                 // as well as to reset current symbol to the next one
@@ -68,11 +97,16 @@
                                 } else {
                                     newExpr.push(symbol);
                                 }
-                                occurrences = 0;
+                                occurrences = 1;
                                 symbol = nextSymbol;
                             }
                         } else {
-                            newExpr.push(symbol);
+                            if (occurrences > 1) {
+                                newExpr.push(self.toOccurrencesString(symbol, occurrences));
+                            } else {
+                                newExpr.push(symbol);
+                            }
+                            break;
                         }
                     }
 
@@ -190,7 +224,10 @@
 
             // at this point we have an expression containing only terminal symbols lets wrap them up
             _.forEachRight(_.values(hasTerminalsOnlyMap), function (expr) {
-                var newExpr = expr.length !== 1 ? '(' + expr + ')' : expr;
+                var newExpr = expr.length !== 1 ? '[' + expr + ']' : expr;
+                if(expr.length > 1){
+                    newExpr = newExpr.replace(new RegExp(_.quote('|'),'g'),'');
+                }
                 if (newExpr !== expr) {
                     regexp.expression = regexp.expression.replace(new RegExp(_.quote(expr), 'g'), newExpr);
                 }
