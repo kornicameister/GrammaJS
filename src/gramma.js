@@ -31,7 +31,7 @@
         },
         equalSymbol        : '::=',
         toOccurrencesString: function (symbol, occurred) {
-            if(occurred === 1){
+            if (occurred === 1) {
                 return symbol;
             }
             return _.format('{symbol}{{occurred}}', {
@@ -49,63 +49,78 @@
             if (uniqueSymbols.length === 1) {
                 normalizer.get = _.bind(self.toOccurrencesString, normalizer, asArray[0], length);
             } else {
-
-                function followGroup(expr){
-
-                }
-
                 normalizer.get = function () {
-                    var it = 0,
+
+                    function zeroOrSingleOccurrence() {
+                        if (occurrences > 1) {
+                            newExpr.push(self.toOccurrencesString(symbol, occurrences));
+                        } else {
+                            newExpr.push(symbol);
+                        }
+                    }
+
+                    var metaSymbols = {
+                            opening       : ['{', '['],
+                            closing       : ['}', ']'],
+                            getSymbol     : function getMetaSymbol() {
+                                var metaSymbol;
+                                switch (symbol) {
+                                    case '[':
+                                        metaSymbol = '?';
+                                        break;
+                                    case '{':
+                                        metaSymbol = '*';
+                                        break;
+                                }
+                                return metaSymbol;
+                            },
+                            getGroupLength: function getGroupLength() {
+                                var itL = it,
+                                    gL = 0;
+                                while (metaSymbols.closing.indexOf(asArray[itL++]) < 0) {
+                                    gL++;
+                                }
+                                return gL + 1;
+                            }
+                        },
+                        it = 0,
                         symbol = asArray[it],
                         occurrences = 1,
                         nextAvailable,
                         nextSymbol,
                         newExpr = [],
-                        metaSymbol;
+                        metaSymbol,
+                        groupLength;
 
                     for (it; it < length; it++) {
 
                         nextAvailable = (it + 1) < length;
-                        
+
                         if (nextAvailable) {
                             nextSymbol = asArray[it + 1];
+
                             if (nextSymbol === symbol) {
                                 occurrences++;
-                            } else if(['{','['].indexOf(symbol) >= 0){
-                                console.log('Meta character ' + symbol + ' detected');
-                                switch(symbol){
-                                    case '{': {
-                                        // 0 or more, => *
-                                        var groupLength = (function(){
-                                            var itL = it,
-                                                gL = 0;
-                                            while(asArray[itL++] !== '}'){
-                                                gL++;
-                                            }
-                                            return gL+1;
-                                        }());0
-                                        newExpr.push('('+ self.normalizeExpression(asArray.join('').slice(it+1,it+groupLength-1)).get() + '*)');
-                                    }
-                                }
-                                it += groupLength-1;
-                                symbol = asArray[it+1];
+                            } else if (metaSymbols.opening.indexOf(symbol) >= 0) {
+                                metaSymbol = metaSymbols.getSymbol();
+                                groupLength = metaSymbols.getGroupLength();
+
+                                console.log('Meta character ' + metaSymbol + ' detected');
+
+                                newExpr.push('(' + self.normalizeExpression(asArray.join('').slice(it + 1, it + groupLength - 1)).get() + metaSymbol + ')');
+
+                                it += groupLength - 1;
+                                symbol = asArray[it + 1];
                             } else {
                                 // need to save given group and reset occurrences
                                 // as well as to reset current symbol to the next one
-                                if (occurrences > 1) {
-                                    newExpr.push(self.toOccurrencesString(symbol, occurrences));
-                                } else {
-                                    newExpr.push(symbol);
-                                }
+                                zeroOrSingleOccurrence();
                                 occurrences = 1;
                                 symbol = nextSymbol;
                             }
+
                         } else {
-                            if (occurrences > 1) {
-                                newExpr.push(self.toOccurrencesString(symbol, occurrences));
-                            } else {
-                                newExpr.push(symbol);
-                            }
+                            zeroOrSingleOccurrence();
                             break;
                         }
                     }
@@ -225,8 +240,8 @@
             // at this point we have an expression containing only terminal symbols lets wrap them up
             _.forEachRight(_.values(hasTerminalsOnlyMap), function (expr) {
                 var newExpr = expr.length !== 1 ? '[' + expr + ']' : expr;
-                if(expr.length > 1){
-                    newExpr = newExpr.replace(new RegExp(_.quote('|'),'g'),'');
+                if (expr.length > 1) {
+                    newExpr = newExpr.replace(new RegExp(_.quote('|'), 'g'), '');
                 }
                 if (newExpr !== expr) {
                     regexp.expression = regexp.expression.replace(new RegExp(_.quote(expr), 'g'), newExpr);
