@@ -151,6 +151,28 @@
         }
     };
 
+    /**
+     * GrammaRegexp encapsulates a result of transformation
+     * from input gramma to the regexp
+     * @param cfg
+     * @constructor
+     */
+    var GrammaRegexp = function GrammaRegexp(cfg) {
+        _.assign(this, cfg);
+    };
+    GrammaRegexp.prototype = {
+        root      : undefined,
+        expression: undefined,
+        gramma    : undefined,
+        asRegexp  : function () {
+            var modifiers = arguments.length === 1 ? arguments[0] : undefined;
+            return modifiers ? new RegExp(this.expression, modifiers) : new RegExp(this.expression);
+        },
+        toString  : function () {
+            return this.root + '::=' + this.expression;
+        }
+    };
+
     function grammaToMap(gramma, symbols) {
         var parser = new Parser(symbols),
             grammaMap = {},
@@ -248,13 +270,11 @@
                 }
             });
 
-            regexp.toString = function () {
-                return this.symbol + '::=' + this.expression;
-            };
-
-            console.log(regexp.toString());
-
-            return regexp.toString();
+            return new GrammaRegexp({
+                root      : regexp.symbol,
+                expression: regexp.expression,
+                gramma    : grammaMap
+            });
         }
 
     };

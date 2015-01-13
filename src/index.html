@@ -34,7 +34,11 @@
                 button = document.getElementById('execButton');
 
         button.addEventListener('click', function () {
-            resultHolder.innerHTML = TT.toRegexp(grammaTA.value, symbolsTA.value);
+            var regexp = TT.toRegexp(grammaTA.value, symbolsTA.value),
+                    rp = regexp.asRegexp('g');
+            resultHolder.innerHTML = regexp.toString();
+
+            console.log(rp);
         });
 
     }());
